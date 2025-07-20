@@ -5,6 +5,7 @@ using System.Security.Claims;
 using Tasker.Data;
 using Tasker.Models;
 using Tasker.Models.Dtos;
+using Tasker.Services.Interfaces;
 
 namespace Tasker.Controllers
 {
@@ -13,11 +14,11 @@ namespace Tasker.Controllers
     [Authorize]
     public class TasksController : ControllerBase
     {
-        private readonly AppDbContext _dbContext;
+        private readonly ITaskService _taskService;
 
-        public TasksController(AppDbContext dbContext)
+        public TasksController(ITaskService taskService)
         {
-            _dbContext = dbContext;
+            _taskService = taskService;
         }
 
         private int GetCurrentUserId()
@@ -34,31 +35,7 @@ namespace Tasker.Controllers
         {
             var userId = GetCurrentUserId();
             
-            var query = _dbContext.TaskItems
-                .Where(t => t.UserId == userId)
-                .AsQueryable();
-
-            if (priority.HasValue)
-                query = query.Where(t => t.Priority == priority.Value);
-
-            if (isCompleted.HasValue)
-                query = query.Where(t => t.IsCompleted == isCompleted.Value);
-
-            var totalCount = await query.CountAsync();
-
-            var tasks = await query
-                .OrderByDescending(t => t.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            var result = new PagedResult<TaskItem>
-            {
-                TotalCount = totalCount,
-                Page = page,
-                PageSize = pageSize,
-                Items = tasks
-            };
+            var result = await _taskService.GetTasksAsync(userId, priority, isCompleted, page, pageSize);
 
             return Ok(result);
         }
@@ -67,7 +44,7 @@ namespace Tasker.Controllers
         public async Task<IActionResult> Get(int id)
         {
             var userId = GetCurrentUserId();
-            var task = await _dbContext.TaskItems.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            var task = await _taskService.GetByIdAsync(userId, id);
 
             if (task == null)
                 return NotFound();
@@ -79,17 +56,8 @@ namespace Tasker.Controllers
         public async Task<IActionResult> Create(TaskItemDto dto)
         {
             var userId = GetCurrentUserId();
-            var task = new TaskItem
-            {
-                Title = dto.Title,
-                Description = dto.Description,
-                IsCompleted = dto.IsCompleted,
-                UserId = userId,
-                Priority = dto.Priority
-            };
-
-            _dbContext.TaskItems.Add(task);
-            await _dbContext.SaveChangesAsync();
+            
+            var task = await _taskService.CreateAsync(userId, dto);
 
             return CreatedAtAction(nameof(Get), new { id = task.Id }, task);
         }
@@ -98,16 +66,11 @@ namespace Tasker.Controllers
         public async Task<IActionResult> Update(int id, TaskItemDto dto)
         {
             var userId = GetCurrentUserId();
-            var task = await _dbContext.TaskItems.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
-            if (task == null)
+            var success = await _taskService.UpdateAsync(userId, id, dto);
+
+            if (!success)
                 return NotFound();
-
-            task.Title = dto.Title;
-            task.Description = dto.Description;
-            task.IsCompleted = dto.IsCompleted;
-
-            await _dbContext.SaveChangesAsync();
 
             return NoContent();
         }
@@ -116,13 +79,10 @@ namespace Tasker.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var userId = GetCurrentUserId();
-            var task = await _dbContext.TaskItems.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            var success = await _taskService.DeleteAsync(userId, id);
 
-            if (task == null)
+            if(!success)
                 return NotFound();
-
-            _dbContext.TaskItems.Remove(task);
-            await _dbContext.SaveChangesAsync();
 
             return NoContent();
         }
