@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -5,6 +7,7 @@ using System.Text;
 using Tasker.Data;
 using Tasker.Services;
 using Tasker.Services.Interfaces;
+using Tasker.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +70,9 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<TaskItemDtoValidator>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -84,3 +90,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

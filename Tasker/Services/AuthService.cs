@@ -12,9 +12,9 @@ namespace Tasker.Services
     public class AuthService : IAuthService
     {
         private readonly AppDbContext _dbContext;
-        private readonly TokenService _tokenService;
+        private readonly ITokenService _tokenService;
 
-        public AuthService(AppDbContext dbContext, TokenService tokenService)
+        public AuthService(AppDbContext dbContext, ITokenService tokenService)
         {
             _dbContext = dbContext;
             _tokenService = tokenService;
