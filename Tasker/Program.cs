@@ -9,6 +9,8 @@ builder.Services
     .AddAppSwagger()
     .AddAppValidation();
 
+builder.Services.AddMemoryCache();
+
 builder.Services.AddControllers();
 
 var app = builder.Build();

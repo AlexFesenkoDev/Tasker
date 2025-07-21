@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Tasker.Models;
 using Tasker.Models.Dtos;
 using Tasker.Services;
@@ -14,7 +15,9 @@ namespace Tasker.Tests.Unit.Services
         {
             // Arrange
             using var context = DbContextHelper.CreateInMemoryContext();
-            var service = new TaskService(context);
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
+
+            var service = new TaskService(context, memoryCache);
 
             int userId = 1;
             context.TaskItems.AddRange(
@@ -31,12 +34,49 @@ namespace Tasker.Tests.Unit.Services
             result.TotalCount.Should().Be(1);
             result.Items.Should().ContainSingle(t => t.Title == "T2");
         }
-        
+
+        [Fact]
+        public async Task GetTasksAsync_ShouldUseCache_OnSecondCall()
+        {
+            // Arrange
+            using var context = DbContextHelper.CreateInMemoryContext();
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
+            var service = new TaskService(context, memoryCache);
+
+            int userId = 1;
+            context.TaskItems.Add(new TaskItem
+            {
+                Title = "CachedTask",
+                UserId = userId,
+                Priority = TaskPriority.High,
+                IsCompleted = false
+            });
+            await context.SaveChangesAsync();
+
+            // Act
+            var result1 = await service.GetTasksAsync(userId, TaskPriority.High, false, 1, 10);
+
+            // Remove from DB
+            context.TaskItems.RemoveRange(context.TaskItems);
+            await context.SaveChangesAsync();
+
+            // Act 
+            var result2 = await service.GetTasksAsync(userId, TaskPriority.High, false, 1, 10);
+
+            // Assert
+            result1.Items.Should().HaveCount(1);
+            result2.Items.Should().HaveCount(1);
+            result2.Items.First().Title.Should().Be("CachedTask");
+        }
+
+
         [Fact]
         public async Task GetByIdAsync_ShouldReturnUserTask()
         {
             using var context = DbContextHelper.CreateInMemoryContext();
-            var service = new TaskService(context);
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
+
+            var service = new TaskService(context, memoryCache);
 
             var task = new TaskItem { Title = "Test", UserId = 1 };
             context.TaskItems.Add(task);
@@ -52,7 +92,9 @@ namespace Tasker.Tests.Unit.Services
         public async Task CreateAsync_ShouldAddTask()
         {
             using var context = DbContextHelper.CreateInMemoryContext();
-            var service = new TaskService(context);
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
+
+            var service = new TaskService(context, memoryCache);
 
             var dto = new TaskItemDto { Title = "New Task", Description = "Desc", Priority = TaskPriority.Low };
 
@@ -67,7 +109,9 @@ namespace Tasker.Tests.Unit.Services
         public async Task UpdateAsync_ShouldUpdateTask()
         {
             using var context = DbContextHelper.CreateInMemoryContext();
-            var service = new TaskService(context);
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
+
+            var service = new TaskService(context, memoryCache);
 
             var task = new TaskItem { Title = "Old", UserId = 1, IsCompleted = false };
             context.TaskItems.Add(task);
@@ -84,7 +128,9 @@ namespace Tasker.Tests.Unit.Services
         public async Task DeleteAsync_ShouldRemoveTask()
         {
             using var context = DbContextHelper.CreateInMemoryContext();
-            var service = new TaskService(context);
+            var memoryCache = new MemoryCache(new MemoryCacheOptions());
+
+            var service = new TaskService(context, memoryCache);
 
             var task = new TaskItem { Title = "To delete", UserId = 1 };
             context.TaskItems.Add(task);

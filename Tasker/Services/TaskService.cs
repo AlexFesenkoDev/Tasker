@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Tasker.Data;
 using Tasker.Models;
 using Tasker.Models.Dtos;
@@ -9,10 +10,12 @@ namespace Tasker.Services
     public class TaskService : ITaskService
     {
         private readonly AppDbContext _dbContext;
+        private readonly IMemoryCache _cache;
 
-        public TaskService(AppDbContext dbContext)
+        public TaskService(AppDbContext dbContext, IMemoryCache cache)
         {
             _dbContext = dbContext;
+            _cache = cache;
         }
         public async Task<TaskItem> CreateAsync(int userId, TaskItemDto dto)
         {
@@ -51,6 +54,10 @@ namespace Tasker.Services
 
         public async Task<PagedResult<TaskItem>> GetTasksAsync(int userId, TaskPriority? priority, bool? isCompleted, int page, int pageSize)
         {
+            var cacheKey = $"tasks:{userId}:{priority}:{isCompleted}:{page}:{pageSize}";
+            if (_cache.TryGetValue(cacheKey, out var obj) && obj is PagedResult<TaskItem> cachedResult)
+                return cachedResult;
+
             var query = _dbContext.TaskItems
                 .Where(t => t.UserId == userId)
                 .AsQueryable();
@@ -76,6 +83,11 @@ namespace Tasker.Services
                 PageSize = pageSize,
                 Items = tasks
             };
+
+            _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1)
+            });
 
             return result;
         }
