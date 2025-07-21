@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using Tasker.Data;
 using Tasker.Models;
 using Tasker.Models.Dtos;
 using Tasker.Services.Interfaces;
