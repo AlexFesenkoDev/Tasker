@@ -9,10 +9,12 @@ namespace Tasker.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, ILogger<AuthController> logger)
         {
             _authService = authService;
+            _logger = logger;
         }
 
         [HttpPost("register")]
@@ -29,6 +31,8 @@ namespace Tasker.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto dto)
         {
+            _logger.LogError("Log it manually");
+
             var (isSuccess, token, error) = await _authService.LoginAsync(dto);
 
             if (!isSuccess)
